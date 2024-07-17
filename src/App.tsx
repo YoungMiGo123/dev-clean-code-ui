@@ -42,9 +42,9 @@ function App() {
                         {AppRoutes.map((route, index) => {
                           const { path, element } = route;
                           return (
-                            <ProtectedRoute>
+                            
                               <Route key={index} path={path} element={element} />
-                            </ProtectedRoute>
+                            
                           );
 
                         })}
