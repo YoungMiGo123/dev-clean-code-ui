@@ -7,6 +7,7 @@ interface CurriculumItem {
   type: CurriculumItemType;
   title: string;
   material: File | null;
+  editing: boolean; 
 }
 
 interface Section {
@@ -30,6 +31,10 @@ const CreateCurriculum: React.FC = () => {
   };
 
   const handleAddSection = () => {
+    if (course.title.trim() === '') {
+      alert('Please enter a course title before adding a section.');
+      return;
+    }
     setCourse({
       ...course,
       sections: [...course.sections, { title: '', curriculum: [] }]
@@ -44,7 +49,7 @@ const CreateCurriculum: React.FC = () => {
 
   const handleAddCurriculumItem = (sectionIndex: number, type: CurriculumItemType) => {
     const sections = [...course.sections];
-    sections[sectionIndex].curriculum.push({ type, title: '', material: null });
+    sections[sectionIndex].curriculum.push({ type, title: '', material: null, editing: true });
     setCourse({ ...course, sections });
   };
 
@@ -57,6 +62,28 @@ const CreateCurriculum: React.FC = () => {
   const handleDrop = (sectionIndex: number, itemIndex: number, acceptedFiles: File[]) => {
     const sections = [...course.sections];
     sections[sectionIndex].curriculum[itemIndex].material = acceptedFiles[0];
+    setCourse({ ...course, sections });
+  };
+
+  const handleRemoveCurriculumItem = (sectionIndex: number, itemIndex: number) => {
+    const sections = [...course.sections];
+    sections[sectionIndex].curriculum.splice(itemIndex, 1);
+    setCourse({ ...course, sections });
+  };
+
+  const handleSaveCurriculumItem = (sectionIndex: number, itemIndex: number) => {
+    const sections = [...course.sections];
+    sections[sectionIndex].curriculum[itemIndex].editing = false;
+    setCourse({ ...course, sections });
+  };
+
+  const handleCancelCurriculumItem = (sectionIndex: number, itemIndex: number) => {
+    const sections = [...course.sections];
+    if (sections[sectionIndex].curriculum[itemIndex].title.trim() === '') {
+      sections[sectionIndex].curriculum.splice(itemIndex, 1);
+    } else {
+      sections[sectionIndex].curriculum[itemIndex].editing = false;
+    }
     setCourse({ ...course, sections });
   };
 
@@ -131,12 +158,41 @@ const CreateCurriculum: React.FC = () => {
                       className="form-control" 
                       value={item.title} 
                       onChange={(e) => handleCurriculumItemTitleChange(sectionIndex, itemIndex, e)} 
+                      disabled={!item.editing}
                     />
                   </div>
-                  {item.type === 'Lecture' && (
+                  {item.type === 'Lecture' && item.editing && (
                     <FileUploader 
                       onDrop={(acceptedFiles) => handleDrop(sectionIndex, itemIndex, acceptedFiles)} 
                     />
+                  )}
+                  {item.editing ? (
+                    <div className="mt-2">
+                      <button 
+                        type="button" 
+                        className="btn btn-success mr-2" 
+                        onClick={() => handleSaveCurriculumItem(sectionIndex, itemIndex)}
+                      >
+                        Save
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary mr-2" 
+                        onClick={() => handleCancelCurriculumItem(sectionIndex, itemIndex)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      <button 
+                        type="button" 
+                        className="btn btn-danger mr-2" 
+                        onClick={() => handleRemoveCurriculumItem(sectionIndex, itemIndex)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
