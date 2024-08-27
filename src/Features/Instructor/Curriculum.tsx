@@ -4,27 +4,38 @@ import { useDropzone } from 'react-dropzone';
 type CurriculumItemType = 'Lecture' | 'Quiz' | 'Coding Exercise' | 'Practice Test' | 'Assignment';
 
 interface CurriculumItem {
-  type: CurriculumItemType;
+  curriculumItemId: string;
+  sectionId: string;
   title: string;
-  material: File | null;
-  editing: boolean; 
+  type: string;
+  material: string | null;
+  editing: boolean;
 }
 
 interface Section {
+  sectionId: string;
+  courseId: string;
   title: string;
-  curriculum: CurriculumItem[];
+  curriculumItems: CurriculumItem[];
 }
 
 interface Course {
+  courseId: string;
+  userId: string;
   title: string;
   sections: Section[];
 }
 
 const CreateCurriculum: React.FC = () => {
   const [course, setCourse] = useState<Course>({
+    courseId: '3fa85f64-5717-4562-b3fc-2c963f66afa6', 
+    userId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',  
     title: '',
     sections: []
   });
+
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isCourseCleared, setIsCourseCleared] = useState(false);
 
   const handleCourseTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCourse({ ...course, title: e.target.value });
@@ -37,7 +48,15 @@ const CreateCurriculum: React.FC = () => {
     }
     setCourse({
       ...course,
-      sections: [...course.sections, { title: '', curriculum: [] }]
+      sections: [
+        ...course.sections,
+        {
+          sectionId: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Replace with a unique identifier
+          courseId: course.courseId,
+          title: '',
+          curriculumItems: []
+        }
+      ]
     });
   };
 
@@ -49,49 +68,123 @@ const CreateCurriculum: React.FC = () => {
 
   const handleAddCurriculumItem = (sectionIndex: number, type: CurriculumItemType) => {
     const sections = [...course.sections];
-    sections[sectionIndex].curriculum.push({ type, title: '', material: null, editing: true });
+    sections[sectionIndex].curriculumItems.push({
+      curriculumItemId: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Replace with a unique identifier
+      sectionId: sections[sectionIndex].sectionId,
+      title: '',
+      type: type,
+      material: null,
+      editing: true
+    });
     setCourse({ ...course, sections });
   };
 
   const handleCurriculumItemTitleChange = (sectionIndex: number, itemIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const sections = [...course.sections];
-    sections[sectionIndex].curriculum[itemIndex].title = e.target.value;
+    sections[sectionIndex].curriculumItems[itemIndex].title = e.target.value;
     setCourse({ ...course, sections });
   };
 
   const handleDrop = (sectionIndex: number, itemIndex: number, acceptedFiles: File[]) => {
+
     const sections = [...course.sections];
-    sections[sectionIndex].curriculum[itemIndex].material = acceptedFiles[0];
-    setCourse({ ...course, sections });
+    const file = acceptedFiles[0];
+    const reader = new FileReader();
+
+    reader.onload = () => {
+        const base64String = reader.result as string;
+
+        // Accept multiple file types
+        const allowedFileTypes = [
+            'application/pdf',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'video/mp4'
+        ];
+
+        // Check if the uploaded file is of an allowed type
+        if (allowedFileTypes.includes(file.type)) {
+            sections[sectionIndex].curriculumItems[itemIndex].material = base64String;
+            setCourse({ ...course, sections });
+        } else {
+            alert('Unsupported file type. Please upload a PDF, PowerPoint, Word document, or MP4 video.');
+        }
+    };
+
+    reader.readAsDataURL(file);  // Convert the file to base64 string
+   
   };
 
   const handleRemoveCurriculumItem = (sectionIndex: number, itemIndex: number) => {
     const sections = [...course.sections];
-    sections[sectionIndex].curriculum.splice(itemIndex, 1);
-    setCourse({ ...course, sections });
-  };
-
-  const handleSaveCurriculumItem = (sectionIndex: number, itemIndex: number) => {
-    const sections = [...course.sections];
-    sections[sectionIndex].curriculum[itemIndex].editing = false;
+    sections[sectionIndex].curriculumItems.splice(itemIndex, 1);
     setCourse({ ...course, sections });
   };
 
   const handleCancelCurriculumItem = (sectionIndex: number, itemIndex: number) => {
     const sections = [...course.sections];
-    if (sections[sectionIndex].curriculum[itemIndex].title.trim() === '') {
-      sections[sectionIndex].curriculum.splice(itemIndex, 1);
+    if (sections[sectionIndex].curriculumItems[itemIndex].title.trim() === '') {
+      sections[sectionIndex].curriculumItems.splice(itemIndex, 1);
     } else {
-      sections[sectionIndex].curriculum[itemIndex].editing = false;
+      sections[sectionIndex].curriculumItems[itemIndex].editing = false;
     }
     setCourse({ ...course, sections });
+  };
+
+  const handleCancelSection = (sectionIndex: number) => {
+    const sections = [...course.sections];
+    sections.splice(sectionIndex, 1);
+    setCourse({ ...course, sections });
+  };
+
+  const handleSaveCourse = async () => {
+    console.log(course);
+    try {
+      const response = await fetch('https://localhost:7149/api/Instructor/CreateCourse', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(course)
+      });
+      console.log('response' ,response);
+      
+      if (!response.ok) {
+        const errorMessage = await response.text();
+        console.error('Error message from server:', errorMessage);
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+      console.log('Course saved:', data);
+      setSuccessMessage('Course saved successfully!');
+      setIsCourseCleared(false);
+
+    } catch (error) {
+      console.error('Error saving course:', error);
+    }
   };
 
   return (
     <div className="container-fluid pt-5 pb-5">
       <div className="row">
         <div className="col-12">
-          <h1>Create Course</h1>
+          <div className="d-flex justify-content-between align-items-center">
+            <h1>Create Course</h1>
+            <button type="button" className="btn btn-success" onClick={handleSaveCourse}>
+              Save
+            </button>
+          </div>
+          {successMessage && (
+
+          <div className="alert alert-success" role="alert">
+            {successMessage}
+
+          </div>
+          )}
+
           <div className="form-group">
             <label>Course Title:</label>
             <input 
@@ -110,6 +203,7 @@ const CreateCurriculum: React.FC = () => {
                   className="form-control" 
                   value={section.title} 
                   onChange={(e) => handleSectionTitleChange(sectionIndex, e)} 
+                  disabled={isCourseCleared}
                 />
               </div>
               <div className="mt-2">
@@ -117,6 +211,7 @@ const CreateCurriculum: React.FC = () => {
                   type="button" 
                   className="btn btn-primary" 
                   onClick={() => handleAddCurriculumItem(sectionIndex, 'Lecture')}
+                  disabled={isCourseCleared}
                 >
                   <span className="cross-sign">+</span> Lecture
                 </button>
@@ -124,6 +219,7 @@ const CreateCurriculum: React.FC = () => {
                   type="button" 
                   className="btn btn-primary ml-2" 
                   onClick={() => handleAddCurriculumItem(sectionIndex, 'Quiz')}
+                  disabled={isCourseCleared}
                 >
                   <span className="cross-sign">+</span> Quiz
                 </button>
@@ -131,6 +227,7 @@ const CreateCurriculum: React.FC = () => {
                   type="button" 
                   className="btn btn-primary ml-2" 
                   onClick={() => handleAddCurriculumItem(sectionIndex, 'Coding Exercise')}
+                  disabled={isCourseCleared}
                 >
                   <span className="cross-sign">+</span> Coding Exercise
                 </button>
@@ -138,6 +235,7 @@ const CreateCurriculum: React.FC = () => {
                   type="button" 
                   className="btn btn-primary ml-2" 
                   onClick={() => handleAddCurriculumItem(sectionIndex, 'Practice Test')}
+                  disabled={isCourseCleared}
                 >
                   <span className="cross-sign">+</span> Practice Test
                 </button>
@@ -145,11 +243,12 @@ const CreateCurriculum: React.FC = () => {
                   type="button" 
                   className="btn btn-primary ml-2" 
                   onClick={() => handleAddCurriculumItem(sectionIndex, 'Assignment')}
+                  disabled={isCourseCleared}
                 >
                   <span className="cross-sign">+</span> Assignment
                 </button>
               </div>
-              {section.curriculum.map((item, itemIndex) => (
+              {section.curriculumItems.map((item, itemIndex) => (
                 <div key={itemIndex} className="mt-3">
                   <div className="form-group">
                     <label>{item.type} Title:</label>
@@ -158,7 +257,7 @@ const CreateCurriculum: React.FC = () => {
                       className="form-control" 
                       value={item.title} 
                       onChange={(e) => handleCurriculumItemTitleChange(sectionIndex, itemIndex, e)} 
-                      disabled={!item.editing}
+                      disabled={!item.editing || isCourseCleared}
                     />
                   </div>
                   {item.type === 'Lecture' && item.editing && (
@@ -170,15 +269,9 @@ const CreateCurriculum: React.FC = () => {
                     <div className="mt-2">
                       <button 
                         type="button" 
-                        className="btn btn-success mr-2" 
-                        onClick={() => handleSaveCurriculumItem(sectionIndex, itemIndex)}
-                      >
-                        Save
-                      </button>
-                      <button 
-                        type="button" 
                         className="btn btn-secondary mr-2" 
                         onClick={() => handleCancelCurriculumItem(sectionIndex, itemIndex)}
+                        disabled={isCourseCleared}
                       >
                         Cancel
                       </button>
@@ -189,6 +282,7 @@ const CreateCurriculum: React.FC = () => {
                         type="button" 
                         className="btn btn-danger mr-2" 
                         onClick={() => handleRemoveCurriculumItem(sectionIndex, itemIndex)}
+                        disabled={isCourseCleared}
                       >
                         Delete
                       </button>
@@ -196,6 +290,14 @@ const CreateCurriculum: React.FC = () => {
                   )}
                 </div>
               ))}
+              <button 
+                type="button" 
+                className="btn btn-secondary mt-3" 
+                onClick={() => handleCancelSection(sectionIndex)}
+                disabled={isCourseCleared}
+              >
+                 Remove Section
+              </button>
             </div>
           ))}
           <button 
